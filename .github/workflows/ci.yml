@@ -1,0 +1,87 @@
+name: ci
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  agent:
+    name: agent (Python)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure git for private loang-toolkit
+        env:
+          LOANG_TOOLKIT_TOKEN: ${{ secrets.LOANG_TOOLKIT_TOKEN }}
+        run: |
+          if [ -z "${LOANG_TOOLKIT_TOKEN}" ]; then
+            echo "::error::LOANG_TOOLKIT_TOKEN secret missing; pip cannot fetch loang-toolkit"
+            exit 1
+          fi
+          git config --global url."https://x-access-token:${LOANG_TOOLKIT_TOKEN}@github.com/".insteadOf "https://github.com/"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: agent/pyproject.toml
+
+      - name: Install agent
+        working-directory: agent
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Lint (ruff)
+        working-directory: agent
+        run: ruff check src tests
+
+      - name: Type check (mypy strict)
+        working-directory: agent
+        run: mypy --strict src
+
+      - name: Tests + coverage
+        working-directory: agent
+        run: pytest --cov=agent --cov-report=term-missing --cov-fail-under=70
+
+  dashboard:
+    name: dashboard (Next.js)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+
+      - name: Install dashboard
+        working-directory: dashboard
+        run: npm install --no-audit --no-fund
+
+      - name: Lint
+        working-directory: dashboard
+        run: npm run lint
+
+      - name: Type check
+        working-directory: dashboard
+        run: npm run typecheck
+
+      - name: Build
+        working-directory: dashboard
+        run: npm run build

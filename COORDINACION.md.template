@@ -1,0 +1,26 @@
+# COORDINACION.md (template)
+
+> Copia este archivo a `COORDINACION.md` (sin `.template`) en la raíz del repo cuando trabajen >1 dev en paralelo. Está en `.gitignore`: cada checkout local lo mantiene; no se sube. El hook `UserPromptSubmit` configurado en `.claude/settings.json` lo inyecta automáticamente al contexto de Claude Code.
+
+## Devs activos
+
+| Dev | Foco actual | Rama | Última actualización |
+|---|---|---|---|
+| <Eduardo> | <agente — phase_light_llm> | `feat/light-llm` | 2026-04-29 11:00 |
+| <Otro> | <dashboard — página /executions> | `feat/exec-list` | 2026-04-29 12:30 |
+
+## En curso (no tocar)
+
+- `agent/src/agent/phases/01_validate.py` — Eduardo, ETA hoy 17:00.
+- `dashboard/src/app/executions/page.tsx` — Otro, ETA mañana.
+
+## Pendiente / siguiente
+
+- Decidir D2 (escalación a humano por monto). Owner: Eduardo. Bloquea: `phase_heavy_llm`.
+
+## Convenciones de coordinación
+
+- Antes de empezar trabajo en un archivo, anuncia en este `COORDINACION.md` y en Slack.
+- Tras 2h sin tocar lo anunciado, otro dev puede tomarlo.
+- PRs se mergean tras 1 aprobación; commits a `main` directos solo para cambios trivialmente reversibles (typo, comentario).
+- Ningún cambio simultáneo a `agent/alembic/versions/` por dos devs sin coordinar el orden de revisiones.

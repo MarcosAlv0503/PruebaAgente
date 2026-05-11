@@ -1,0 +1,21 @@
+{
+  "_comment": "TODO loang-template: replace this canonical example with one drawn from the project's real input shape and domain vocabulary.",
+  "input": {
+    "customer_id": "00000000-0000-0000-0000-000000000001",
+    "input_type": "text",
+    "raw_text": "<domain_event>"
+  },
+  "output": {
+    "status": "succeeded",
+    "result": {
+      "summary": "<concise outcome of the agent>"
+    },
+    "notes": "Stub example — no real LLM call.",
+    "execution_metadata": {
+      "execution_id": "00000000-0000-0000-0000-000000000001",
+      "duration_s": 0.4,
+      "tokens_total": 0,
+      "cost_usd": 0
+    }
+  }
+}

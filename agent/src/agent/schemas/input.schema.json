@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://loangia.com/schemas/agent-input.schema.json",
+  "title": "Agent execution input",
+  "description": "Canonical input shape for one execution of the Loang agent. Projects extend `structured` with their own fields; do not change the top-level shape without an ADR.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["customer_id", "input_type"],
+  "properties": {
+    "customer_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "FK to the `customers` table."
+    },
+    "input_type": {
+      "type": "string",
+      "enum": ["text", "structured", "mixed"],
+      "description": "Discriminator for the payload."
+    },
+    "structured": {
+      "type": "object",
+      "description": "Project-specific structured payload.",
+      "additionalProperties": true
+    },
+    "raw_text": {
+      "type": "string",
+      "description": "Free-form text input from the upstream system."
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Provenance + correlation metadata (request_id, channel, locale, ...)."
+    }
+  }
+}

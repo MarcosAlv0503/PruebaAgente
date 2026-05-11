@@ -1,0 +1,51 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(make *)",
+      "Bash(npm install)",
+      "Bash(npm run *)",
+      "Bash(npx *)",
+      "Bash(.venv/bin/*)",
+      "Bash(python3 *)",
+      "Bash(python3.13 *)",
+      "Bash(docker compose *)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push*)",
+      "Bash(git pull*)",
+      "Bash(git checkout *)",
+      "Bash(git branch *)",
+      "Bash(git tag *)",
+      "Bash(gh pr *)",
+      "Bash(gh issue *)",
+      "Bash(gh release *)",
+      "Bash(gh run *)",
+      "Bash(gh repo view*)",
+      "Bash(grep *)",
+      "Bash(rg *)",
+      "Bash(find *)"
+    ],
+    "deny": [
+      "Bash(rm -rf /*)",
+      "Bash(gh repo delete*)",
+      "Bash(git push --force*)",
+      "Bash(git reset --hard*)"
+    ]
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "test -f COORDINACION.md && printf '\\n--- COORDINACION.md (auto-injected) ---\\n%s\\n' \"$(cat COORDINACION.md)\" || true"
+          }
+        ]
+      }
+    ]
+  }
+}

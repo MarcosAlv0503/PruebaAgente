@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://loangia.com/schemas/agent-output.schema.json",
+  "title": "Agent execution output",
+  "description": "Canonical result shape after the agent finishes one execution.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["status", "execution_metadata"],
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": ["succeeded", "failed", "partial"],
+      "description": "Outcome of the execution."
+    },
+    "result": {
+      "type": "object",
+      "description": "Project-specific success payload.",
+      "additionalProperties": true
+    },
+    "notes": {
+      "type": "string",
+      "description": "Optional human-readable summary of what the agent did."
+    },
+    "execution_metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["execution_id", "duration_s", "tokens_total", "cost_usd"],
+      "properties": {
+        "execution_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "duration_s": {
+          "type": "number",
+          "minimum": 0
+        },
+        "tokens_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cost_usd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "phases": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "model", "tokens_input", "tokens_output"],
+            "properties": {
+              "name": { "type": "string" },
+              "model": { "type": "string" },
+              "tokens_input": { "type": "integer", "minimum": 0 },
+              "tokens_output": { "type": "integer", "minimum": 0 }
+            }
+          }
+        }
+      }
+    }
+  }
+}
