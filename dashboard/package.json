@@ -2,7 +2,7 @@
   "name": "dashboard",
   "version": "0.1.0",
   "private": true,
-  "description": "Loang IA template-agent dashboard (Next.js 15 + Tailwind + shadcn).",
+  "description": "Loang IA ecommerce support agent dashboard (Next.js 15 + Tailwind + shadcn).",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -17,12 +17,17 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "tailwind-merge": "^2.5.4",
-    "lucide-react": "^0.453.0"
+    "lucide-react": "^0.453.0",
+    "react-hook-form": "^7.54.0",
+    "zod": "^3.24.0",
+    "@hookform/resolvers": "^3.10.0",
+    "pg": "^8.13.0"
   },
   "devDependencies": {
     "@types/node": "^20.16.10",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@types/pg": "^8.11.0",
     "autoprefixer": "^10.4.20",
     "eslint": "^9.0.0",
     "eslint-config-next": "^15.0.0",

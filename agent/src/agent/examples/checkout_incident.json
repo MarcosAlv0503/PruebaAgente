@@ -1,0 +1,34 @@
+{
+  "_description": "Golden case: critical payment incident — always escalates regardless of KB match",
+  "input": {
+    "message": "El checkout no deja pagar con tarjeta. Llevamos 30 minutos sin poder procesar ningún pedido.",
+    "customer_id": "00000000-0000-0000-0000-000000000001",
+    "external_id": "chat-msg-golden-001",
+    "reported_at": "2026-05-12T10:00:00Z",
+    "reporter": "María García",
+    "channel": "web"
+  },
+  "expected": {
+    "phase_deterministic": {
+      "is_duplicate": false,
+      "initial_category": "payment",
+      "initial_severity": "critical",
+      "extracted_keywords_contains": ["checkout", "pagar", "tarjeta", "pedido"]
+    },
+    "phase_light_llm": {
+      "classification_type": "payment",
+      "classification_severity": "critical",
+      "auto_resolved": false,
+      "needs_heavy": true
+    },
+    "phase_heavy_llm": {
+      "ticket_generated": true,
+      "log_generated": true
+    },
+    "output": {
+      "auto_resolved": false,
+      "ticket_ref_not_null": true,
+      "log_ref_not_null": true
+    }
+  }
+}

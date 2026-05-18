@@ -1,25 +1,77 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://loangia.com/schemas/agent-output.schema.json",
-  "title": "Agent execution output",
-  "description": "Canonical result shape after the agent finishes one execution.",
+  "$id": "https://loangia.com/schemas/ecommerce-support-output.schema.json",
+  "title": "IncidentOutput",
+  "description": "Output del agente tras procesar una incidencia. Persiste en executions.output y se usa para renderizar la respuesta en el chat.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["status", "execution_metadata"],
+  "required": [
+    "status",
+    "incident_id",
+    "auto_resolved",
+    "classification",
+    "final_response",
+    "log_ref",
+    "execution_metadata"
+  ],
   "properties": {
     "status": {
       "type": "string",
       "enum": ["succeeded", "failed", "partial"],
-      "description": "Outcome of the execution."
+      "description": "Resultado global de la ejecución."
     },
-    "result": {
-      "type": "object",
-      "description": "Project-specific success payload.",
-      "additionalProperties": true
-    },
-    "notes": {
+    "incident_id": {
       "type": "string",
-      "description": "Optional human-readable summary of what the agent did."
+      "format": "uuid",
+      "description": "ID de la ejecución (coincide con execution_id de la tabla executions)."
+    },
+    "auto_resolved": {
+      "type": "boolean",
+      "description": "true si el agente respondió con solución extraída de la KB. false si escaló a ticket humano."
+    },
+    "classification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "severity", "confidence"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["technical", "functional", "access", "payment", "content", "other"],
+          "description": "Categoría de la incidencia según docs/05_DOMINIO.md."
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"],
+          "description": "Nivel de impacto operativo. critical siempre escala."
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Confianza del clasificador (0.0–1.0). Por debajo de CONFIDENCE_THRESHOLD fuerza phase_heavy_llm."
+        }
+      }
+    },
+    "final_response": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Texto que el agente devuelve al operador en el chat del dashboard."
+    },
+    "kb_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "Rutas relativas (desde agent/knowledge/) de los documentos usados para generar la respuesta. Vacío si auto_resolved=false sin match KB."
+    },
+    "ticket_ref": {
+      "type": ["string", "null"],
+      "description": "Ruta del fichero de ticket en /Documentos/tickets/. null si auto_resolved=true."
+    },
+    "log_ref": {
+      "type": "string",
+      "description": "Ruta del fichero de log en /Documentos/logs/. Siempre presente."
     },
     "execution_metadata": {
       "type": "object",

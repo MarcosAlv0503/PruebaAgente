@@ -5,9 +5,6 @@ checks ``tool_name in ALLOWED_TOOLS_BY_PHASE[phase]`` *before* calling the
 tool, and the tool itself re-checks it as a defence-in-depth measure
 (Playbook §5.1.2 — bloqueo en dos niveles).
 
-# TODO loang-template: populate this map with the real tools per phase. The
-# canonical phases are ``deterministic``, ``light_llm`` and ``heavy_llm``;
-# rename to match the project's actual pipeline.
 """
 
 from __future__ import annotations
@@ -15,9 +12,22 @@ from __future__ import annotations
 from typing import Final
 
 ALLOWED_TOOLS_BY_PHASE: Final[dict[str, frozenset[str]]] = {
-    "deterministic": frozenset(),
-    "light_llm": frozenset(),
-    "heavy_llm": frozenset(),
+    "deterministic": frozenset({
+        "check_duplicate",
+        "get_customer_context",
+        "write_log",
+    }),
+    "light_llm": frozenset({
+        "search_knowledge_base",
+        "get_recent_incidents",
+        "write_log",
+    }),
+    "heavy_llm": frozenset({
+        "search_knowledge_base",
+        "get_recent_incidents",
+        "write_log",
+        "create_ticket",
+    }),
 }
 
 

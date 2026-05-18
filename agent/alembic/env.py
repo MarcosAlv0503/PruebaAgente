@@ -20,6 +20,9 @@ if config.config_file_name is not None:
 database_url = os.environ.get("DATABASE_URL")
 if database_url is None:
     raise RuntimeError("DATABASE_URL environment variable must be set for Alembic to run")
+# psycopg v3 requires the +psycopg driver suffix; rewrite bare postgresql:// URLs.
+if database_url.startswith("postgresql://"):
+    database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
 config.set_main_option("sqlalchemy.url", database_url)
 
 target_metadata = None  # raw SQL migrations; no SQLAlchemy models in v0.1.0

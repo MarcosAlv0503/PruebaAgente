@@ -1,7 +1,7 @@
 services:
   db:
     image: postgres:16-alpine
-    container_name: loang-template-db
+    container_name: loang-ecommerce-db
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-loang}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-loang}
@@ -20,47 +20,51 @@ services:
     build:
       context: ./agent
       dockerfile: Dockerfile
-      secrets:
-        - loang_toolkit_token
-    container_name: loang-template-agent
+    container_name: loang-ecommerce-agent
     depends_on:
       db:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-loang}:${POSTGRES_PASSWORD:-loang}@db:5432/${POSTGRES_DB:-loang}
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
-      MAX_TOKENS_PER_RUN: ${MAX_TOKENS_PER_RUN:-1000000}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      CIRCUIT_BREAKER_MAX_TOKENS: ${CIRCUIT_BREAKER_MAX_TOKENS:-4000}
+      CONFIDENCE_THRESHOLD: ${CONFIDENCE_THRESHOLD:-0.75}
+      DOCS_PATH: /Documentos
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     ports:
       - "8000:8000"
     volumes:
       - ./agent/src:/app/src:ro
+      - ./agent/knowledge:/app/knowledge:ro
+      - documentos:/Documentos
     command: ["uvicorn", "agent.api:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
   worker:
     build:
       context: ./agent
       dockerfile: Dockerfile
-      secrets:
-        - loang_toolkit_token
-    container_name: loang-template-worker
+    container_name: loang-ecommerce-worker
     depends_on:
       db:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-loang}:${POSTGRES_PASSWORD:-loang}@db:5432/${POSTGRES_DB:-loang}
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
-      MAX_TOKENS_PER_RUN: ${MAX_TOKENS_PER_RUN:-1000000}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      CIRCUIT_BREAKER_MAX_TOKENS: ${CIRCUIT_BREAKER_MAX_TOKENS:-4000}
+      CONFIDENCE_THRESHOLD: ${CONFIDENCE_THRESHOLD:-0.75}
+      DOCS_PATH: /Documentos
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     volumes:
       - ./agent/src:/app/src:ro
+      - ./agent/knowledge:/app/knowledge:ro
+      - documentos:/Documentos
     command: ["python", "-m", "agent.worker"]
 
   dashboard:
     build:
       context: ./dashboard
       dockerfile: Dockerfile
-    container_name: loang-template-dashboard
+    container_name: loang-ecommerce-dashboard
     depends_on:
       - agent
     environment:
@@ -74,12 +78,6 @@ services:
       - ./dashboard/src:/app/src:ro
     command: ["npm", "run", "dev"]
 
-# BuildKit secrets: the value is read from the host environment at build time
-# (set LOANG_TOOLKIT_TOKEN before running `make up` or
-# `docker compose build`). It is not baked into any image layer.
-secrets:
-  loang_toolkit_token:
-    environment: LOANG_TOOLKIT_TOKEN
-
 volumes:
   db_data:
+  documentos:

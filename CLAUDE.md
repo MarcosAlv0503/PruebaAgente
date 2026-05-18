@@ -1,19 +1,24 @@
-# loang-template-agent
+# loang-ecommerce-support-agent
 
-> Repo plantilla GitHub privado. Punto de partida de cualquier proyecto de agente nuevo de Grupo Loang. Acompaña al Playbook Loang de Construcción de Agentes (v1).
+> Agente de soporte operativo para tiendas ecommerce de ropa. Clasifica incidencias técnicas y funcionales, resuelve automáticamente las documentadas en la KB y escala con trazabilidad completa las que requieren intervención humana.
 
 ## Estado actual
 
-Fase 1 — Esqueleto. En construcción inicial. Última actualización: arranque del proyecto.
+Sprint 0 completado — documentación, schemas y arquitectura definidos. Sprint 1 en curso: fases del agente.
 
 ## Top 6 cosas que NO hacer
 
-1. **No metas lógica de negocio del agente.** El template es esqueleto cableado, no un agente real. Cada placeholder está marcado con `# TODO loang-template:` para que el dev del proyecto que clona sepa qué adaptar y qué borrar. Consecuencia: el template se acopla a un proyecto concreto y deja de ser reusable.
-2. **No actualices versiones major del stack** sin ADR del playbook. Next.js 15 (no 16), Python 3.13 (no 3.14), NextAuth v5 estable (no beta). Consecuencia: proyectos clonados heredan inestabilidades y rompen 2 años después.
-3. **No metas el `loang-toolkit` con `pip install -e .`.** Se importa con `pip install git+ssh://...@v<X.Y.Z>` con tag pinned. Consecuencia: proyectos clonados quedan colgados de un fork local del toolkit.
-4. **No commitees `.env`, ni claves, ni la `FERNET_KEY` del template** aunque sea de ejemplo. Solo `.env.example`. Consecuencia: pwn.
-5. **No hagas el `agent/context/` con contenido real.** Deja placeholders genéricos que cada proyecto rellena (ver §13 del playbook). Consecuencia: el template "habla" de un dominio que no es el del proyecto que lo clona.
-6. **No mezcles UI del dashboard en inglés y español.** UI siempre en español (cliente final hispanohablante por defecto del playbook). Si el proyecto necesita inglés, ADR del proyecto que lo clona. Consecuencia: i18n a medias en cada proyecto clonado.
+1. **No ejecutes acciones sobre la plataforma ecommerce.** El agente analiza, clasifica y responde — nunca modifica la tienda ni ejecuta cambios en producción. Consecuencia: riesgo operativo directo sobre el negocio del cliente final.
+
+2. **No respondas con confianza baja sin escalar.** Si `classification.confidence < CONFIDENCE_THRESHOLD` (env, default 0.75), la ejecución DEBE pasar a `phase_heavy_llm` o generar ticket. Consecuencia: el operador actúa sobre una respuesta incorrecta que aparenta ser autorizada por el agente.
+
+3. **No inventes soluciones.** Las fases LLM solo responden con base en `agent/knowledge/`. Si la KB no tiene la respuesta, el agente escala. Sin excepciones. Consecuencia: instrucciones incorrectas con riesgo de daño operativo al cliente.
+
+4. **No escribas en `agent/knowledge/` desde el código del agente.** La KB es estrictamente read-only para el agente. Las actualizaciones las hace el equipo humano via commit. Consecuencia: el agente contamina su propia fuente de verdad y las respuestas se vuelven inconsistentes.
+
+5. **No mezcles responsabilidades entre fases.** `phase_deterministic` no llama a LLM; `phase_light_llm` no genera tickets ni escribe ficheros; `phase_heavy_llm` no valida el input. Consecuencia: coste impredecible, testing por fase imposible y routing erróneo.
+
+6. **No writes a `/Documentos/` fuera de `storage_client`.** Todo fichero en `/Documentos/logs/` y `/Documentos/tickets/` pasa por `services/clients/storage_client.py`. Consecuencia: paths inconsistentes y pérdida silenciosa de trazabilidad operativa.
 
 ## Stack del proyecto
 
@@ -22,6 +27,8 @@ Fase 1 — Esqueleto. En construcción inicial. Última actualización: arranque
 | Lenguaje del agente | Python 3.13 | |
 | Orquestación LLM | LangGraph | |
 | Pasarela de modelos | OpenRouter vía `loang-toolkit.OpenRouterClient` | |
+| Fase light | `anthropic/claude-haiku-4-5` | Clasificación + KB lookup |
+| Fase heavy | `anthropic/claude-sonnet-4-5` | Escalación + ticket |
 | Backend HTTP | FastAPI | |
 | BD | PostgreSQL | Postgres en Docker Compose local; Fly.io postgres en producción |
 | Migraciones | Alembic | |
@@ -32,19 +39,20 @@ Fase 1 — Esqueleto. En construcción inicial. Última actualización: arranque
 | UI | Tailwind + shadcn/ui | |
 | Forms | react-hook-form + zod | |
 | Tablas | TanStack Table | |
-| Auth | NextAuth v5 estable | |
+| Auth | NextAuth v5 estable | Deferido a v0.2.0 |
 | Plataforma cloud | Fly.io | Región `mad` por defecto |
-| Orquestación local | Docker Compose | |
-| Observabilidad | Sentry (Python + Next) | |
+| Orquestación local | Docker Compose | Volume `/Documentos` montado |
+| Observabilidad | Sentry (Python + Next) | Deferido a v0.2.0 |
 | Logs | JSON estructurados a stdout | Formato `[component] message` |
-| Browser automation | Playwright sync (cuando aplique) | |
+| KB | Archivos `.md` en `agent/knowledge/` | Keyword search en v0.1.x; pgvector en v0.2.0 |
+| Storage incidencias | Filesystem `/Documentos/` | Migración a Postgres en v0.2.0 |
 
 (Desviaciones del estándar del playbook: ver `docs/00_DECISIONES.md`.)
 
 ## Convenciones no negociables
 
-- Idioma del código: inglés (variables, funciones, comentarios, schema BD, slash commands, logs, commits).
-- Idioma de la UI del dashboard: español (cliente final hispanohablante).
+- Idioma del código: inglés (variables, funciones, comentarios, schema BD, logs, commits).
+- Idioma de la UI del dashboard: español (operador hispanohablante).
 - Idioma de la documentación (`docs/`, `CLAUDE.md`, prosa): español.
 - Tipos: `mypy strict` en Python, `strict: true` en TS. Sin `any` ni `Any`.
 - Logs: JSON estructurados a stdout, formato `[component] message`.
@@ -56,7 +64,7 @@ Fase 1 — Esqueleto. En construcción inicial. Última actualización: arranque
 make up          # arranca todos los servicios (docker-compose)
 make migrate     # aplica migraciones Alembic
 make test        # tests + lint + types (Python + TS)
-make rn ID=123   # ejecuta una unidad de trabajo concreta del agente (placeholder)
+make rn ID=123   # procesa una incidencia concreta (customer_id)
 ```
 
 ## Mapa de documentación
@@ -76,148 +84,104 @@ Carga bajo demanda según en qué trabajes:
 | Frontend Next.js | `08_FRONTEND.md` + `dashboard/CLAUDE.md` |
 | Operación / deploy | `09_OPERACION.md` + `RUNBOOK.md` |
 | Anti-patrones extendidos | `10_ANTIPATRONES.md` |
-| Lenguaje visual del cliente | `11_LENGUAJE_VISUAL.md` |
 | Seguridad | `SECURITY.md` |
 
 ## Coordinación entre devs
 
-Si el proyecto que clona este template trabaja con dos terminales Claude Code en paralelo (típico: uno en `agent/`, otro en `dashboard/`), copia `COORDINACION.md.template` a `COORDINACION.md` en raíz y mantenlo actualizado. El hook `UserPromptSubmit` configurado en `.claude/settings.json` lo inyecta automáticamente al contexto.
-
-## Cómo se usa este template
-
-```bash
-# Crear un proyecto nuevo a partir del template
-gh repo create loang-<proyecto> --template grupoloang/loang-template-agent --private
-cd loang-<proyecto>
-
-# Adaptar
-# 1. Editar CLAUDE.md raíz: rellenar Top N anti-patrones del proyecto, stack si difiere.
-# 2. Editar docs/01_PROYECTO.md con cliente, problema, capacidades x modo, volumetría, hitos.
-# 3. Editar agent/context/01-mision.md con la misión del agente concreto.
-# 4. Borrar lo que no se use (ej. dashboard/ si es agente puro batch sin UI).
-# 5. Renombrar referencias internas de "loang-template" a "loang-<proyecto>".
-# 6. Configurar Fly.io: fly launch + fly secrets.
-# 7. Primer prompt a Claude Code: usar plantilla §13.14 del playbook adaptada a este proyecto.
-```
+Si el proyecto trabaja con dos terminales Claude Code en paralelo (típico: uno en `agent/`, otro en `dashboard/`), copia `COORDINACION.md.template` a `COORDINACION.md` en raíz y mantenlo actualizado. El hook `UserPromptSubmit` configurado en `.claude/settings.json` lo inyecta automáticamente al contexto.
 
 ## Estructura del repo
 
 ```
-loang-template-agent/
-├── CLAUDE.md                          ← este archivo
-├── README.md                          ← cómo se usa el template
-├── docker-compose.yml
+loang-ecommerce-support-agent/
+├── CLAUDE.md
+├── README.md
+├── docker-compose.yml                 ← volume /Documentos montado
 ├── .env.example
 ├── .gitignore
-├── COORDINACION.md.template           ← se copia a COORDINACION.md cuando hay >1 dev
 ├── Makefile
 ├── .claude/
-│   ├── settings.json                  ← permisos bash + hook UserPromptSubmit
+│   ├── settings.json
 │   └── commands/
-│       └── audit.md                   ← plantilla §13.15 (auditoría externa)
+│       └── audit.md
 ├── docs/
-│   ├── 00_DECISIONES.md               ← ADR vivo (template arranca con 4 ADRs)
-│   ├── 01_PROYECTO.md                 ← rellenar al clonar
+│   ├── 00_DECISIONES.md
+│   ├── 01_PROYECTO.md
 │   ├── 02_ARQUITECTURA.md
 │   ├── 03_AGENTE.md
+│   ├── 04_MODELOS_COSTES.md
+│   ├── 05_DOMINIO.md
 │   ├── 06_BASE_DATOS.md
 │   ├── 09_OPERACION.md
 │   ├── 10_ANTIPATRONES.md
 │   ├── RUNBOOK.md
 │   └── SECURITY.md
 ├── agent/
-│   ├── CLAUDE.md                      ← convenciones del agente
+│   ├── CLAUDE.md
 │   ├── pyproject.toml
 │   ├── alembic.ini
-│   ├── alembic/
-│   │   ├── env.py
-│   │   └── versions/
-│   │       └── 0001_initial.py        ← schema base 4 tablas (playbook §13.16 parcial)
-│   ├── src/
-│   │   └── agent/
-│   │       ├── __init__.py
-│   │       ├── _logging.py            ← JSON logger del agente
-│   │       ├── api.py                 ← FastAPI app
-│   │       ├── worker.py              ← worker loop
-│   │       ├── cli.py                 ← entrada CLI (make rn, make rn-retry)
-│   │       ├── graph.py               ← LangGraph stub
-│   │       ├── phases/
-│   │       │   ├── __init__.py
-│   │       │   └── _example.py        ← placeholder + comentario para borrar
-│   │       ├── tools/
-│   │       │   ├── __init__.py
-│   │       │   └── _allowed.py        ← whitelist por fase (sin dispatcher en v0.1.x)
-│   │       ├── prompts/
-│   │       │   └── _example-v1-2026-04-29.md  ← placeholder con front-matter
-│   │       ├── services/
-│   │       │   ├── __init__.py
-│   │       │   └── clients/
-│   │       │       └── __init__.py    ← placeholder; cada proyecto añade clients/<provider>.py
-│   │       ├── schemas/
-│   │       │   ├── input.schema.json  ← schema base genérico
-│   │       │   └── output.schema.json
-│   │       ├── examples/
-│   │       │   └── _example.json      ← placeholder
-│   │       ├── context/
-│   │       │   ├── 01-mision.md       ← rellenar al clonar
-│   │       │   └── 02-criterio.md
-│   │       └── roadmap/
-│   │           ├── decisiones-pendientes.md
-│   │           └── changelog.md
-│   ├── tests/
-│   │   ├── __init__.py
-│   │   └── test_smoke.py              ← imports + lifecycle + schemas + prompts
-│   └── Dockerfile
+│   ├── alembic/versions/
+│   │   ├── 0001_initial.py            ← customers, executions, agent_usage, queue
+│   │   └── 0002_incident_schema.py    ← pendiente Sprint 1
+│   ├── knowledge/                     ← BASE DE CONOCIMIENTO (read-only para el agente)
+│   │   ├── faqs/
+│   │   ├── technical/
+│   │   ├── procedures/
+│   │   └── known_issues/
+│   └── src/agent/
+│       ├── _logging.py
+│       ├── api.py                     ← POST /api/incidents (Sprint 3)
+│       ├── worker.py
+│       ├── cli.py
+│       ├── graph.py
+│       ├── phases/
+│       │   ├── 00_intake.py           ← phase_deterministic (Sprint 1)
+│       │   ├── 01_classify.py         ← phase_light_llm (Sprint 1)
+│       │   └── 02_escalate.py         ← phase_heavy_llm (Sprint 1)
+│       ├── tools/
+│       │   ├── _allowed.py
+│       │   ├── check_duplicate.py     ← Sprint 1
+│       │   ├── get_customer_context.py← Sprint 1
+│       │   ├── search_knowledge_base.py← Sprint 1
+│       │   ├── get_recent_incidents.py← Sprint 1
+│       │   ├── write_log.py           ← Sprint 1
+│       │   └── create_ticket.py       ← Sprint 1
+│       ├── services/clients/
+│       │   ├── kb_client.py           ← Sprint 1
+│       │   └── storage_client.py      ← Sprint 1
+│       ├── prompts/
+│       │   ├── classifier-v1-2026-05-12.md
+│       │   └── escalator-v1-2026-05-12.md
+│       ├── schemas/
+│       │   ├── input.schema.json
+│       │   └── output.schema.json
+│       ├── examples/
+│       │   └── checkout_incident.json
+│       ├── context/
+│       │   ├── 01-mision.md
+│       │   └── 02-criterio.md
+│       └── roadmap/
+│           ├── decisiones-pendientes.md
+│           └── changelog.md
 ├── dashboard/
 │   ├── CLAUDE.md
-│   ├── package.json                   ← Next.js 15 + Tailwind + class-variance-authority
-│   ├── tsconfig.json
-│   ├── next.config.js
-│   ├── tailwind.config.ts
-│   ├── postcss.config.js
-│   ├── .eslintrc.json
-│   ├── src/
-│   │   ├── app/
-│   │   │   ├── layout.tsx
-│   │   │   └── page.tsx
-│   │   ├── components/
-│   │   │   └── ui/
-│   │   │       └── button.tsx         ← única primitiva shadcn en v0.1.x
-│   │   ├── lib/
-│   │   │   └── utils.ts               ← cn() helper para shadcn
-│   │   └── styles/
-│   │       └── globals.css
-│   └── Dockerfile
-├── docker-compose.yml                 ← db + agent + worker + dashboard (BuildKit secret)
-├── COORDINACION.md.template
-├── CHANGELOG.md
-└── .github/
-    └── workflows/
-        └── ci.yml                     ← lint + types + tests + build en cada PR
+│   ├── src/app/
+│   │   ├── layout.tsx
+│   │   ├── page.tsx
+│   │   ├── chat/                      ← Sprint 4
+│   │   └── incidents/                 ← Sprint 4
+│   └── src/lib/
+│       ├── utils.ts
+│       ├── db.ts                      ← Sprint 4
+│       └── api.ts                     ← Sprint 4
+└── .github/workflows/ci.yml
 ```
 
-**Diferido a v0.2.0** y por tanto **no presentes** en el árbol actual (ver ADR-002):
-`.claude/commands/{adr.md,phase-close.md}`, `docs/{04_MODELOS_COSTES,05_DOMINIO,07_BACKEND,08_FRONTEND,11_LENGUAJE_VISUAL}.md`, `dashboard/components.json`, `dashboard/drizzle.config.ts`, `dashboard/src/app/api/auth/[...nextauth]/route.ts`, `dashboard/src/lib/{db.ts,api.ts,auth.ts}`, `dashboard/tests/`, `fly.toml`, `.github/workflows/deploy.yml`, schema completo (`issues`, `human_tasks`, `audit_log`).
+## Patrones de seguridad obligatorios
 
-## Patrones obligatorios pre-cableados
-
-Cuando un proyecto clona este template, hereda automáticamente:
-
-- **Multi-modelo por fase**: estructura `phases/` con whitelist por fase (`tools/_allowed.py`).
-- **Bloqueo de tools en dos niveles**: hook en el dispatcher que valida contra `_allowed.py`.
-- **Token tracking + circuit breaker**: importa `loang-toolkit.OpenRouterClient` ya configurado.
-- **Cliente único centralizado**: `services/clients/` con interfaz de dominio.
-- **Idempotencia por `external_id`**: schema `executions` con `UNIQUE(customer_id, external_id)`.
-- **Resumen consolidado entre fases**: helper `build_summary(state) -> str` stub.
-- **`COORDINACION.md` con hook**: `.claude/settings.json` ya configurado.
-- **Top N anti-patrones en `CLAUDE.md`**: estructura puesta, contenido vacío para que el proyecto rellene.
-- **Schemas JSON formales**: `agent/schemas/` con `additionalProperties: false`.
-- **Prompts versionados**: `agent/prompts/<role>-v<n>-<YYYY-MM-DD>.md` con front-matter YAML.
-- **`agent/roadmap/decisiones-pendientes.md`** con etiquetas.
-- **`agent/roadmap/changelog.md`** con formato fijo.
-
-## Convenciones del template (no del proyecto que lo clona)
-
-- Cada placeholder tiene comentario `# TODO loang-template: ...` que el proyecto que clona busca con `rg "TODO loang-template"` y resuelve uno a uno.
-- Cada archivo `_example.*` se borra cuando el proyecto añade el real.
-- Versionado del template: tag `v0.1.0` al cierre Fase 1, semver desde ahí. Cuando el template cambia, los proyectos ya clonados no se actualizan automáticamente — es decisión de cada proyecto si cherry-pickea cambios del template.
+- **KB read-only:** `kb_client.py` solo abre ficheros en modo lectura. Sin writes en `agent/knowledge/`.
+- **Bloqueo de tools en dos niveles:** dispatcher en `graph.py` verifica `ALLOWED_TOOLS_BY_PHASE` antes de invocar; la propia tool revalida `is_tool_allowed` como defence-in-depth.
+- **Idempotencia:** `executions.UNIQUE(customer_id, external_id)` — `phase_deterministic` verifica antes de procesar.
+- **Circuit breaker:** `OpenRouterClient(max_tokens_per_run=CIRCUIT_BREAKER_MAX_TOKENS)`.
+- **Sin acciones destructivas:** el agente no ejecuta comandos sobre la plataforma ecommerce.
+- **Storage centralizado:** todo write a `/Documentos/` pasa por `storage_client.py`.

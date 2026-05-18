@@ -91,7 +91,7 @@ def get_logger(component: str) -> logging.Logger:
     Returns:
         A :class:`logging.Logger` named ``agent.<component>``.
     """
-    if not component or not component.replace("_", "").isalnum():
+    if not component or not component.replace("_", "").replace(".", "").isalnum():
         raise ValueError(f"Invalid component name: {component!r}")
     _configure_root_logger()
     return logging.getLogger(f"{_LOGGER_ROOT}.{component}")

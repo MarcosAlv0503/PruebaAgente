@@ -1,35 +1,49 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://loangia.com/schemas/agent-input.schema.json",
-  "title": "Agent execution input",
-  "description": "Canonical input shape for one execution of the Loang agent. Projects extend `structured` with their own fields; do not change the top-level shape without an ADR.",
+  "$id": "https://loangia.com/schemas/ecommerce-support-input.schema.json",
+  "title": "IncidentInput",
+  "description": "Input de una incidencia enviada desde el chat del dashboard. Un mensaje de chat = una ejecución del agente.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["customer_id", "input_type"],
+  "required": [
+    "message",
+    "customer_id",
+    "external_id",
+    "reported_at",
+    "reporter",
+    "channel"
+  ],
   "properties": {
+    "message": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000,
+      "description": "Texto de la incidencia tal como lo escribe el operador en el chat."
+    },
     "customer_id": {
       "type": "string",
       "format": "uuid",
-      "description": "FK to the `customers` table."
+      "description": "FK a la tabla customers. Identifica la tienda ecommerce que reporta."
     },
-    "input_type": {
+    "external_id": {
       "type": "string",
-      "enum": ["text", "structured", "mixed"],
-      "description": "Discriminator for the payload."
+      "minLength": 1,
+      "description": "ID único del mensaje en el canal de origen (chat web). Garantiza idempotencia ante reintentos — si el mismo external_id ya fue procesado, la ejecución se descarta."
     },
-    "structured": {
-      "type": "object",
-      "description": "Project-specific structured payload.",
-      "additionalProperties": true
-    },
-    "raw_text": {
+    "reported_at": {
       "type": "string",
-      "description": "Free-form text input from the upstream system."
+      "format": "date-time",
+      "description": "Timestamp ISO-8601 de cuándo el operador envió el mensaje."
     },
-    "metadata": {
-      "type": "object",
-      "additionalProperties": true,
-      "description": "Provenance + correlation metadata (request_id, channel, locale, ...)."
+    "reporter": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Nombre o identificador del operador que reporta la incidencia."
+    },
+    "channel": {
+      "type": "string",
+      "enum": ["web"],
+      "description": "Canal de entrada. Actualmente solo 'web' (chat del dashboard Next.js)."
     }
   }
 }

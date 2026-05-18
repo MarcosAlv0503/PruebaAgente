@@ -1,28 +1,22 @@
-"""Worker loop that pulls work units from the ``queue`` table.
-
-v0.1.0 stub: connects, polls every ``WORKER_POLL_INTERVAL_S`` seconds (default
-5), logs ``no work`` when the queue is empty, and exits cleanly on SIGINT.
-
-Real projects replace ``_handle_execution`` with the LangGraph driver from
-``agent.graph`` and add idempotency / retry policy as needed.
-"""
-
+"""Worker loop: claim executions from queue, run the agent graph, persist output."""
 from __future__ import annotations
 
+import json
 import os
 import signal
 import time
 from types import FrameType
+from typing import Any
 
 import psycopg
+from psycopg.rows import dict_row
 
+from agent import graph
 from agent._logging import get_logger
 
 _LOGGER = get_logger("worker")
-
 _DEFAULT_POLL_INTERVAL_S: float = 5.0
 _LOCK_OWNER: str = os.environ.get("WORKER_NAME", "worker-default")
-
 _running = True
 
 
@@ -58,11 +52,7 @@ def main() -> None:
 
 
 def _claim_one(conn: psycopg.Connection[tuple[object, ...]]) -> str | None:
-    """Reserve the oldest unlocked queue entry for this worker.
-
-    Uses ``SELECT ... FOR UPDATE SKIP LOCKED`` so multiple workers can run
-    side by side without colliding.
-    """
+    """Reserve the oldest unlocked queue entry with SELECT FOR UPDATE SKIP LOCKED."""
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -87,43 +77,110 @@ def _claim_one(conn: psycopg.Connection[tuple[object, ...]]) -> str | None:
 
 
 def _handle_execution(execution_id: str) -> None:
-    """Process one execution.
-
-    The v0.1.x template stub does not run any real work; it only closes the
-    execution lifecycle so ``make rn`` does not leave rows stuck in
-    ``running`` or queue entries pending. The consuming project replaces
-    this body with a call to ``agent.graph.run(state)`` and richer status
-    transitions.
-
-    .. note::
-       TODO loang-template: replace this stub with the real LangGraph
-       invocation from ``agent.graph`` and project-specific status
-       handling.
-    """
+    """Load execution from DB, build State, run graph, persist output."""
     dsn = os.environ.get("DATABASE_URL")
     if dsn is None:
-        _LOGGER.warning(
-            "claimed execution=%s but DATABASE_URL unset; cannot close lifecycle",
-            execution_id,
-        )
+        _LOGGER.warning("[worker] DATABASE_URL unset, cannot handle execution=%s", execution_id)
         return
-    with psycopg.connect(dsn) as conn, conn.cursor() as cur:
-        cur.execute(
-            """
-            UPDATE executions
-            SET status = 'succeeded',
-                output = %s::jsonb,
-                started_at = COALESCE(started_at, now()),
-                finished_at = now()
-            WHERE id = %s
-            """,
-            ('{"stub": true}', execution_id),
-        )
-        cur.execute("DELETE FROM queue WHERE execution_id = %s", (execution_id,))
+
+    with psycopg.connect(dsn) as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                "SELECT id::text, customer_id::text, input FROM executions WHERE id = %s::uuid",
+                (execution_id,),
+            )
+            row = cur.fetchone()
+
+        if row is None:
+            _LOGGER.error("[worker] execution=%s not found in DB", execution_id)
+            return
+
+        input_data: dict[str, Any] = dict(row["input"])
+
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE executions SET status='running', started_at=COALESCE(started_at, now()) WHERE id=%s::uuid",
+                (execution_id,),
+            )
         conn.commit()
+
+    state: graph.State = {
+        "execution_id": execution_id,
+        "customer_id": str(row["customer_id"]),
+        "input": input_data,
+        "incident_message": str(input_data.get("message", "")),
+        "reporter": str(input_data.get("reporter", "unknown")),
+        "channel": str(input_data.get("channel", "web")),
+        "reported_at": str(input_data.get("reported_at", "")),
+        "summary": None,
+        "light_output": None,
+        "heavy_output": None,
+        "is_duplicate": False,
+        "customer_context": None,
+        "extracted_keywords": [],
+        "initial_category": None,
+        "initial_severity": None,
+        "classification": None,
+        "kb_results": [],
+        "proposed_response": None,
+        "needs_heavy": False,
+        "ticket": None,
+        "escalation_reason": None,
+        "thread_id": str(input_data.get("thread_id", "")),
+        "conversation_history": [
+            {"role": str(t["role"]), "content": str(t["content"])}
+            for t in input_data.get("conversation_history", [])
+            if isinstance(t, dict) and "role" in t and "content" in t
+        ],
+        "final_response": None,
+        "log_ref": None,
+        "ticket_ref": None,
+    }
+
+    with psycopg.connect(dsn) as conn:
+        try:
+            state = graph.run(state)
+        except Exception as exc:
+            _LOGGER.exception("[worker] execution=%s graph raised", execution_id)
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE executions SET status='failed', error=%s, finished_at=now() WHERE id=%s::uuid",
+                    (str(exc), execution_id),
+                )
+                cur.execute("DELETE FROM queue WHERE execution_id=%s::uuid", (execution_id,))
+            conn.commit()
+            return
+
+        status = "failed" if state["is_duplicate"] else "succeeded"
+        error: str | None = "duplicate_skipped" if state["is_duplicate"] else None
+
+        output: dict[str, Any] = {
+            "incident_id": execution_id,
+            "auto_resolved": not state.get("needs_heavy", False),
+            "classification": state.get("classification"),
+            "final_response": state.get("final_response"),
+            "kb_refs": [str(r.get("path", "")) for r in state.get("kb_results", [])],
+            "ticket_ref": state.get("ticket_ref"),
+            "log_ref": state.get("log_ref"),
+        }
+
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE executions
+                SET status=%s, output=%s::jsonb, error=%s, finished_at=now()
+                WHERE id=%s::uuid
+                """,
+                (status, json.dumps(output), error, execution_id),
+            )
+            cur.execute("DELETE FROM queue WHERE execution_id=%s::uuid", (execution_id,))
+        conn.commit()
+
     _LOGGER.info(
-        "claimed execution=%s closed as succeeded (template stub — no work performed)",
+        "[worker] execution=%s status=%s auto_resolved=%s",
         execution_id,
+        status,
+        output["auto_resolved"],
     )
 
 

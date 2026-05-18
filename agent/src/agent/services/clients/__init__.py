@@ -1,14 +1,11 @@
 """External provider clients (single-centralised-client pattern).
 
-Pattern: one module per external system, named ``services/clients/<provider>.py``.
-Each module exposes a class whose surface mirrors the domain operation we use,
-not the provider's full API.
+Current clients:
+- kb_client.py       — read-only search over agent/knowledge/*.md
+- storage_client.py  — write logs and tickets to /Documentos/
 
-# TODO loang-template: when the project adds its first integration, drop a
-# file like ``services/clients/holded.py`` here with a class
-# ``HoldedClient`` that takes config in the constructor and exposes only the
-# methods the agent calls. Keep the OpenRouter integration in
-# ``loang_toolkit.OpenRouterClient`` — do not duplicate it here.
+Pattern: one module per external system. Each exposes only the operations the agent uses.
+OpenRouter stays in loang_toolkit.OpenRouterClient — not duplicated here.
 """
 
 from __future__ import annotations
