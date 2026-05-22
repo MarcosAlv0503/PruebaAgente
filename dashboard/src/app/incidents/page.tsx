@@ -1,7 +1,8 @@
 import { listRecentExecutions } from "@/lib/db";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { AlertTriangle, CheckCircle2, Clock, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, MessageSquare, XCircle } from "lucide-react";
+import { ReportButton } from "@/components/report-button";
 
 const STATUS_LABEL: Record<string, string> = {
   pending: "Pendiente",
@@ -51,9 +52,12 @@ export default async function IncidentsPage() {
 
   return (
     <main className="mx-auto max-w-4xl px-6 py-8">
-      <div className="mb-6">
-        <h1 className="text-xl font-semibold">Incidencias recientes</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">Últimas 20 ejecuciones del agente</p>
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold">Incidencias recientes</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Últimas 20 conversaciones — agrupadas por hilo</p>
+        </div>
+        <ReportButton />
       </div>
 
       {error ? (
@@ -127,6 +131,12 @@ export default async function IncidentsPage() {
                                 <AlertTriangle className="h-3 w-3" /> Escalado
                               </span>
                             )}
+                          </Badge>
+                        )}
+                        {ex.turn_count > 1 && (
+                          <Badge variant="outline" className="flex items-center gap-1 text-muted-foreground">
+                            <MessageSquare className="h-3 w-3" />
+                            {ex.turn_count} turnos
                           </Badge>
                         )}
                       </div>

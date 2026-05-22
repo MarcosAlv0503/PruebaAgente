@@ -96,6 +96,18 @@
     "confidence_base": 1.0
   },
   {
+    "id": "coupon_primavera26",
+    "category": "promotions",
+    "keywords": ["primavera26", "primavera 26", "cupon primavera"],
+    "required_keywords": [],
+    "response": "Voy a ayudarte a diagnosticar por qué el cupón PRIMAVERA26 no te funciona. Primera pregunta: ¿el importe total de tu carrito (antes del descuento) supera los 40€?",
+    "requires_human": false,
+    "priority": "medium",
+    "escalation_type": null,
+    "escalation_phone": null,
+    "confidence_base": 1.0
+  },
+  {
     "id": "coupon_bienvenido10",
     "category": "promotions",
     "keywords": ["bienvenido10", "bienvenido 10", "cupon bienvenida"],

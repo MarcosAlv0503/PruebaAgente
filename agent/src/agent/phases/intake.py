@@ -12,10 +12,12 @@ _LOGGER = get_logger("phase.intake")
 _PHASE = "deterministic"
 
 # Ordered from most specific to most general; first match wins.
+# "critical" is reserved for systemic outages affecting ALL users.
+# Individual user issues (my card, my order, I can't login) are "high".
 _SEVERITY_RULES: list[tuple[list[str], str]] = [
-    (["checkout", "pagar", "pago", "tarjeta", "pedido", "compra", "no puedo pagar", "no deja pagar"], "critical"),
-    (["no puedo acceder", "login", "iniciar sesión", "iniciar sesion", "no puedo entrar"], "critical"),
     (["error 500", "web caída", "web caida", "no carga nada", "caído", "caido", "página no carga"], "critical"),
+    (["checkout", "pagar", "pago", "tarjeta", "pedido", "compra", "no puedo pagar", "no deja pagar"], "high"),
+    (["no puedo acceder", "login", "iniciar sesión", "iniciar sesion", "no puedo entrar"], "high"),
     (["imagen", "foto", "fotos", "no carga", "no cargan"], "high"),
     (["cupón", "cupon", "descuento", "código", "codigo", "promoción", "promocion"], "medium"),
     (["lento", "tarda", "va mal", "lentitud", "carga lenta"], "medium"),

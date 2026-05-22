@@ -4,6 +4,7 @@
 
 | Código | Descripción | Tipo |
 |---|---|---|
+| PRIMAVERA26 | 20% dto, colección SS26, válido feb–may 2026, mínimo €40 | Campaña temporal |
 | BIENVENIDO10 | 10% dto, primer pedido, mínimo €30 | Primer pedido |
 | VERANO2026 | 20% dto, colección PV2026, válido may–ago 2026 | Campaña temporal |
 | FIDELIDAD20 | 20% dto, 5+ pedidos anteriores, mínimo €50, solo ropa | Fidelización |

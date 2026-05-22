@@ -14,14 +14,15 @@ from agent.tools.write_log import write_log
 
 _LOGGER = get_logger("phase.classify")
 _PHASE = "light_llm"
-_PROMPT_FILE = Path(__file__).parents[1] / "prompts" / "classifier-v1-2026-05-12.md"
+_PROMPT_FILE = Path(__file__).parents[1] / "prompts" / "classifier-v2-2026-05-20.md"
 
 
 def run(state: dict[str, Any]) -> dict[str, Any]:
     """Classify with haiku + KB search. Writes log and sets final_response if auto-resolved.
 
-    If confidence < CONFIDENCE_THRESHOLD, severity == 'critical', or KB has no match,
-    sets needs_heavy=True to route to phase_heavy_llm.
+    If confidence < CONFIDENCE_THRESHOLD or KB has no match, sets needs_heavy=True.
+    The LLM prompt already enforces that critical severity → auto_resolvable=false,
+    so severity is not checked here to avoid double-penalising over-classified inputs.
     """
     execution_id: str = str(state["execution_id"])
     message: str = str(state.get("incident_message", ""))
@@ -62,7 +63,7 @@ def run(state: dict[str, Any]) -> dict[str, Any]:
 
     threshold = float(os.environ.get("CONFIDENCE_THRESHOLD", "0.75"))
 
-    if severity == "critical" or confidence < threshold or not kb_results:
+    if confidence < threshold or not kb_results:
         auto_resolvable = False
 
     state["classification"] = {

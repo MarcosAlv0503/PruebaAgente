@@ -18,9 +18,24 @@ _PHASE = "deterministic"
 
 
 def run(state: dict[str, Any]) -> dict[str, Any]:
-    """Match incident message against FAQ catalog and route accordingly."""
+    """Match incident message against FAQ catalog and route accordingly.
+
+    If a conversation is already in progress (conversation_history is non-empty),
+    the LLM handles the follow-up using full context — no deterministic routing.
+    """
     execution_id: str = str(state["execution_id"])
     message: str = str(state.get("incident_message", ""))
+    conversation_history: list[dict[str, str]] = list(state.get("conversation_history") or [])
+
+    if conversation_history:
+        _LOGGER.info(
+            "[phase.deterministic_router] execution=%s has_history=true — deferring to LLM",
+            execution_id,
+        )
+        state["deterministic_decision"] = "escalate_llm"
+        state["deterministic_confidence"] = 0.0
+        state["escalation_phone"] = None
+        return state
 
     result = rule_engine.match(message)
 
